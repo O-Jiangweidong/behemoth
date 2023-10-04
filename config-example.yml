@@ -1,12 +1,12 @@
 APP:
-  DEBUG: &debug true
-  RELOAD: *debug
-  LOG_LEVEL: ERROR
-  NAME: behemoth
-  HOST: 0.0.0.0
-  PORT: 8888
-  CORE_HOST: http://127.0.0.1:8080
-  BOOTSTRAP_TOKEN: random_string
-  SECRET_KEY: random_string
+  DEBUG: &debug false # 是否开启DEBUG模式
+  RELOAD: *debug # 是否重启，根据DEBUG参数自动判断，一般无需手动更改
+  LOG_LEVEL: ERROR # 日志级别
+  NAME: behemoth # 注册到Core显示的名称
+  HOST: 0.0.0.0 # Behemoth监听的IP
+  PORT: 8888 # Behemoth监听的端口
+  CORE_HOST: http://127.0.0.1:8080 # Core的通信地址
+  BOOTSTRAP_TOKEN: random_string # 和Core注册时使用的统一口令
+  SECRET_KEY: random_string # 使用加密时使用的字符串(盐)
 ES:
-  HOSTS: http://127.0.0.1:9200
+  HOSTS: http://127.0.0.1:9200 # ElasticSearch的配置，带鉴权的按照URL方式拼写
