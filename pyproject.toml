@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "behemoth"
+version = "0.1.0"
+description = ""
+authors = ["jiangweidong <weidong.jiang@fit2cloud.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.103.1"
+uvicorn = "^0.23.2"
+pyyaml = "^6.0.1"
+elasticsearch = "^8.10.0"
+requests = "^2.31.0"
+aiofiles = "^23.2.1"
+aiologger = "^0.7.0"
+pyjwt = "^2.8.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
