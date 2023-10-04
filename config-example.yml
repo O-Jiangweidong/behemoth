@@ -1,0 +1,12 @@
+APP:
+  DEBUG: &debug true
+  RELOAD: *debug
+  LOG_LEVEL: ERROR
+  NAME: behemoth
+  HOST: 0.0.0.0
+  PORT: 8888
+  CORE_HOST: http://127.0.0.1:8080
+  BOOTSTRAP_TOKEN: random_string
+  SECRET_KEY: random_string
+ES:
+  HOSTS: http://127.0.0.1:9200

@@ -1,0 +1,4 @@
+
+
+class WorkPool(object):
+    pass
