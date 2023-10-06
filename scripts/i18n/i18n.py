@@ -5,6 +5,7 @@ import sys
 import subprocess
 import tempfile
 
+from pathlib import Path
 from typing import Optional
 
 
@@ -67,11 +68,10 @@ class I18n(object):
             writer.flush()
             domain = "behemoth"
             for language in self.languages:
-                output_dir = os.path.join(self.app_dir, 'locales', language, 'LC_MESSAGES')
-                os.makedirs(output_dir, exist_ok=True)
+                output_dir = os.path.join(self.app_dir, 'locales')
                 x_gettext_commands = [
                     'xgettext', '-d', domain, '--language=Python', '--keyword=gettext',
-                    '--keyword=_', f'--output={os.path.join(output_dir, f"{domain}.po")}',
+                    '--keyword=_', f'--output={os.path.join(output_dir, f"{domain}.pot")}',
                     '--from-code=UTF-8', '--add-comments=Translators', '--package-name=v0.1',
                     '--msgid-bugs-address=weidong.jiang@fit2cloud.com', '--no-location',
                     '--copyright-holder='
@@ -79,15 +79,30 @@ class I18n(object):
                 x_gettext_commands.extend(['--files-from', writer.name])
                 self._execute_commands(x_gettext_commands)
 
-        msg_uniq_commands = [
-            'msguniq', '--to-code=utf-8',
-            '/Users/jiangweidong/resources/jumpserver_pr/jumpserver/apps/locale/django.pot'
-        ]
-        msg_merge_commands = [
-            'msgmerge', '-q', '--backup=none', '--previous', '--update',
-            '/Users/jiangweidong/resources/jumpserver_pr/jumpserver/apps/locale/zh/LC_MESSAGES/django.po',
-            '/Users/jiangweidong/resources/jumpserver_pr/jumpserver/apps/locale/django.pot'
-        ]
+                msg_uniq_commands = [
+                    'msguniq', '--to-code=utf-8', f'{os.path.join(output_dir, f"{domain}.pot")}'
+                ]
+                self._execute_commands(msg_uniq_commands)
+
+                i18n_dir = os.path.join(output_dir, language, 'LC_MESSAGES')
+                os.makedirs(i18n_dir, exist_ok=True)
+                po_file = f'{os.path.join(i18n_dir, f"{domain}.po")}'
+                pot_file = f'{os.path.join(output_dir, f"{domain}.pot")}'
+                if os.path.exists(po_file):
+                    msg_merge_commands = [
+                        'msgmerge', '-q', '--backup=none', '--previous',
+                        '--update', po_file, pot_file
+                    ]
+                    self._execute_commands(msg_merge_commands)
+                    messages = Path(po_file).read_text(encoding="utf-8")
+                else:
+                    with open(pot_file, encoding="utf-8") as fp:
+                        messages = fp.read()
+                with open(po_file, "w", encoding="utf-8") as fp:
+                    fp.write(messages)
+
+                if os.path.exists(pot_file):
+                    os.unlink(pot_file)
 
     def compile_i18n(self) -> None:
         # TODO command -> msgfmt messages.po -o messages.mo
