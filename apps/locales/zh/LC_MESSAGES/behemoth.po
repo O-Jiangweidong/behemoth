@@ -7,14 +7,46 @@ msgid ""
 msgstr ""
 "Project-Id-Version: v0.1\n"
 "Report-Msgid-Bugs-To: weidong.jiang@fit2cloud.com\n"
-"POT-Creation-Date: 2023-10-06 14:00+0800\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2023-10-07 15:45+0800\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+msgid "Command managed management component"
+msgstr "命令管理组件"
+
+msgid "ID"
+msgstr "ID"
+
+msgid "Create time"
+msgstr "创建时间"
+
+msgid "Update time"
+msgstr "更新时间"
+
 msgid "Server error"
 msgstr "服务器错误"
+
+msgid "platform"
+msgstr "平台"
+
+msgid "List platforms"
+msgstr "平台列表"
+
+msgid "Create platform"
+msgstr "创建平台"
+
+msgid "Get platform"
+msgstr "获取平台"
+
+msgid "Delete platform"
+msgstr "删除平台"
+
+msgid "Edit platform"
+msgstr "编辑平台"
+
+msgid "assets"
+msgstr "资产"
+
+msgid "List assets"
+msgstr "资产列表"
