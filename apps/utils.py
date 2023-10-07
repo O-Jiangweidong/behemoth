@@ -2,12 +2,14 @@ import os
 
 import aiologger
 
+from typing import Callable
+
 from aiologger.handlers.files import AsyncTimedRotatingFileHandler
 from aiologger.handlers.streams import AsyncStreamHandler
 
 from aiologger.formatters.base import Formatter
 
-from settings import settings
+from apps.settings import settings
 
 
 def get_logger() -> aiologger.Logger:
@@ -32,3 +34,14 @@ def get_logger() -> aiologger.Logger:
     logger.add_handler(file_handler)
     logger.add_handler(stream_handler)
     return logger
+
+
+def singleton(cls) -> Callable:
+    instances: dict = {}
+
+    def wrapper(*args, **kwargs) -> object:
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+
+    return wrapper

@@ -1,11 +1,24 @@
-import uuid
+from common.models import RootModel
 
-from pydantic import BaseModel, ConfigDict, Field
+from .const import PlatformCategory
 
 
-class Asset(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={'table_name': 'assets_asset'}
-    )
+class Test(RootModel):
+    pass
 
-    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+
+class Asset(RootModel):
+    name: str
+    address: str
+
+    class Config:
+        table_name: str = 'assets_asset'
+
+
+class PlatForm(RootModel):
+    name: str
+    category: PlatformCategory = PlatformCategory.mysql
+
+    class Config:
+        table_name: str = 'assets_platform'
+

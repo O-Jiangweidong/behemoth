@@ -91,7 +91,3 @@ class JumpServerClient:
         )
         return f"Behemoth-{''.join(ret)}"
 
-
-jms_client = JumpServerClient()
-res = jms_client.access_key.model_dump()
-print(res)
