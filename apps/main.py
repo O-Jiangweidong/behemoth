@@ -11,13 +11,14 @@ from apps.middlewares import TokenMiddleware
 from apps.settings import settings
 from apps.assets.routers import router as assets_router
 from common.models import RootModel
+from common.exceptions import register_exceptions
 
 
 async def check_database():
     apps = ['assets']
-    for app in apps:
+    for app_name in apps:
         try:
-            module = importlib.import_module(f'apps.{app}.models')
+            module = importlib.import_module(f'apps.{app_name}.models')
         except ModuleNotFoundError:
             continue
 
@@ -31,6 +32,9 @@ app = FastAPI(
     title='Behemoth', summary=_('Command managed management component'),
     on_startup=[check_database]
 )
+
+# 添加全局异常捕捉器
+register_exceptions(app)
 
 # 添加中间件
 # app.add_middleware(TokenMiddleware, )
