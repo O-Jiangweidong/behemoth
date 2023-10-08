@@ -2,7 +2,7 @@ import uuid
 
 from datetime import datetime
 from gettext import gettext as _
-from typing import Any
+from typing import Any, Optional
 
 from elasticsearch import AsyncElasticsearch
 from elastic_transport import ObjectApiResponse
@@ -76,9 +76,9 @@ class ESManager(object):
         return data
 
     @classmethod
-    async def _list(cls) -> list[dict]:
+    async def _list(cls, size: int = 2) -> list[dict]:
         table_name = cls.get_table_name()
-        query = {'query': {'match_all': {}}}
+        query = {'query': {'match_all': {}}, 'size': size}
         response: ObjectApiResponse[Any] = await cls._client.search(
             index=table_name, body=query
         )
