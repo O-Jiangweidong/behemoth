@@ -1,10 +1,11 @@
 from gettext import gettext as _
-from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from fastapi_pagination import Page, paginate
 from pydantic import BaseModel
 
-from .. import models, serializers
+from apps.libs.db import QuerySet
+from .. import models, serializers, params
 
 
 router = APIRouter(tags=[_('platform')])
@@ -12,11 +13,12 @@ router = APIRouter(tags=[_('platform')])
 
 @router.get(
     '/platforms/', summary=_('List platforms'),
-    response_model=List[models.PlatForm]
+    response_model=Page[models.PlatForm]
 )
-async def list_platforms() -> list[dict]:
-    platforms: list[dict] = await models.PlatForm.list()
-    return platforms
+async def list_platforms(p: params.PlatformParams = Depends()) -> list[dict]:
+    qs: QuerySet = await models.PlatForm.list(p)
+    print(p)
+    return paginate(qs.data(), p, length_function=lambda x: len(qs))
 
 
 @router.post(

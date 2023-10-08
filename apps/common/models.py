@@ -7,7 +7,8 @@ from datetime import datetime
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
-from apps.libs.db import DBManager
+from apps.assets import params
+from apps.libs.db import DBManager, QuerySet
 
 
 class RootModel(BaseModel, DBManager):
@@ -42,7 +43,8 @@ class RootModel(BaseModel, DBManager):
         return self
 
     @classmethod
-    async def list(cls) -> list[dict]:
-        queryset: list[dict] = await cls._list()
+    async def list(cls, p: params.PlatformParams) -> QuerySet:
+        result: dict = await cls._list(p.model_dump())
+        queryset: QuerySet = QuerySet(result)
         return queryset
 

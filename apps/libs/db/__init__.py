@@ -1,4 +1,5 @@
-from .es import ESManager
+from .es import ESManager, ESQuerySet
 
 
 DBManager = ESManager
+QuerySet = ESQuerySet

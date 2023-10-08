@@ -15,6 +15,18 @@ from apps.utils import singleton, get_logger
 logger = get_logger()
 
 
+class ESQuerySet(object):
+    def __init__(self, data: dict) -> None:
+        self._data: dict = data['data']
+        self._length = data['total']
+
+    def __len__(self):
+        return self._length
+
+    def data(self):
+        return self._data
+
+
 @singleton
 class ESClient(object):
     @staticmethod
@@ -76,10 +88,15 @@ class ESManager(object):
         return data
 
     @classmethod
-    async def _list(cls, size: int = 2) -> list[dict]:
+    async def _list(cls, param: dict) -> dict:
+        size = param.get('size', 100)
         table_name = cls.get_table_name()
         query = {'query': {'match_all': {}}, 'size': size}
         response: ObjectApiResponse[Any] = await cls._client.search(
             index=table_name, body=query
         )
-        return [hit['_source'] for hit in response['hits']['hits']]
+        result: dict = {
+            'data': [hit['_source'] for hit in response['hits']['hits']],
+            'total': response["hits"]["total"]["value"]
+        }
+        return result
