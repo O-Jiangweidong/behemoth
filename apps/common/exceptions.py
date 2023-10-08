@@ -3,7 +3,7 @@ from gettext import gettext as _
 from fastapi.requests import Request
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic_core._pydantic_core import ValidationError
+from pydantic_core._pydantic_core import ValidationError  # noqa
 from starlette import status
 
 
