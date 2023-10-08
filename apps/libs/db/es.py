@@ -38,16 +38,32 @@ class ESClient(object):
 
 class ESManager(object):
     _client: AsyncElasticsearch = ESClient().get_client()
+    _mapping: dict = {}
 
     @classmethod
-    def get_table_name(cls: 'BaseModel'):
+    def get_mapping(cls: 'BaseModel | ESManager') -> dict:
+        if not cls._mapping:
+            properties = {}
+            for name, field in cls.model_fields.items():
+                _type = 'text'
+                if field.annotation is datetime:
+                    _type = 'date'
+                elif field.annotation is uuid.UUID:
+                    _type = 'keyword'
+
+                properties[name] = {'type': _type}
+            cls._mapping = {'mappings': {'properties': properties}}
+        return cls._mapping
+
+    @classmethod
+    def get_table_name(cls: 'BaseModel | ESManager'):
         table_name: str = cls.model_config.get('table_name', '')
         if not table_name:
             raise ValueError(_('%s model_config no attribute table_name') % (cls,))
         return table_name
 
     @classmethod
-    async def ensure_index_exist(cls: 'BaseModel', index_name: str) -> None:
+    async def ensure_index_exist(cls: 'BaseModel | ESManager', index_name: str) -> None:
         logger.info(f'Start to check whether {index_name} exists')
 
         try:
@@ -61,26 +77,31 @@ class ESManager(object):
         if exist:
             return None
 
-        properties: dict = {}
-        for name, field in cls.model_fields.items():
-            _type = 'text'
-            if field.annotation is datetime:
-                _type = 'date'
-            elif field.annotation is uuid.UUID:
-                _type = 'keyword'
-
-            properties[name] = {'type': _type}
-        body = {'mappings': {'properties': properties}}
         try:
-            await cls._client.indices.create(index=index_name, body=body)
+            await cls._client.indices.create(index=index_name, body=cls.get_mapping())
         except Exception as error:
             logger.error(f'Failed to create {index_name}: {error}')
         else:
             logger.info(f'Succeeded in creating {index_name}')
 
     @classmethod
-    async def check(cls: 'BaseModel') -> None:
-        await cls.ensure_index_exist(cls.get_table_name())
+    async def ensure_index_uniform(cls: 'BaseModel | ESManager', index_name: str) -> None:
+        new_mapping: dict = cls.get_mapping()['mappings']
+        response = await cls._client.indices.get(index=index_name)
+        old_mapping = response[index_name]['mappings']
+        if new_mapping == old_mapping:
+            return
+
+        logger.info(f'Start migrating model [{index_name}] mappings')
+        # 更新索引 mapping
+        await cls._client.indices.put_mapping(index=index_name, body=new_mapping)
+        logger.info(f'The migration model [{index_name}] mapping is complete')
+
+    @classmethod
+    async def check(cls: 'BaseModel | ESManager') -> None:
+        table_name: str = cls.get_table_name()
+        await cls.ensure_index_exist(table_name)
+        await cls.ensure_index_uniform(table_name)
 
     async def _save(self: 'BaseModel', data: dict) -> dict:
         table_name = self.get_table_name()

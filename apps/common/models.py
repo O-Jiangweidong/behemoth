@@ -20,6 +20,7 @@ class RootModel(BaseModel, DBManager):
     update_time: datetime = Field(
         default_factory=lambda: datetime.now(), title=_('Update time'),
     )
+    comment: str = Field(title=_('Comment'))
 
     class Config:
         pass
