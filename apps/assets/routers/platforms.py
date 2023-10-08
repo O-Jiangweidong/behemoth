@@ -11,12 +11,12 @@ router = APIRouter(tags=[_('platform')])
 
 
 @router.get(
-    '/platforms/',
-    summary=_('List platforms'),
+    '/platforms/', summary=_('List platforms'),
     response_model=List[models.PlatForm]
 )
 async def list_platforms() -> list[dict]:
-    pass
+    platforms: list[dict] = await models.PlatForm.list()
+    return platforms
 
 
 @router.post(
@@ -24,7 +24,7 @@ async def list_platforms() -> list[dict]:
     response_model=models.PlatForm,
 )
 async def create_platform(instance: serializers.Platform) -> BaseModel:
-    instance: BaseModel = instance.save()
+    instance: BaseModel = await instance.save()
     return instance
 
 
@@ -48,7 +48,7 @@ async def delete_platform() -> None:
     '/platforms/{platform_id}/',
     summary=_('Edit platform')
 )
-async def edit_platform(instance: serializers.Platform) -> models.PlatForm:
+async def edit_platform(instance: serializers.Platform) -> BaseModel:
     instance = instance.save()
     return instance
 

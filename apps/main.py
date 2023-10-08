@@ -1,8 +1,6 @@
 import importlib
 import inspect
 
-from importlib import util as import_util
-
 import uvicorn
 
 from gettext import gettext as _

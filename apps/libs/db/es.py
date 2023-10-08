@@ -1,8 +1,11 @@
 import uuid
 
 from datetime import datetime
+from gettext import gettext as _
+from typing import Any
 
 from elasticsearch import AsyncElasticsearch
+from elastic_transport import ObjectApiResponse
 from pydantic import BaseModel
 
 from apps.settings import settings
@@ -23,6 +26,13 @@ class ESClient(object):
 
 class ESManager(object):
     _client: AsyncElasticsearch = ESClient().get_client()
+
+    @classmethod
+    def get_table_name(cls: 'BaseModel'):
+        table_name: str = cls.model_config.get('table_name', '')
+        if not table_name:
+            raise ValueError(_('%s model_config no attribute table_name') % (cls,))
+        return table_name
 
     @classmethod
     async def ensure_index_exist(cls: 'BaseModel', index_name: str) -> None:
@@ -58,8 +68,18 @@ class ESManager(object):
 
     @classmethod
     async def check(cls: 'BaseModel') -> None:
-        table_name: str = cls.model_config.get('table_name')
-        if not table_name:
-            return
+        await cls.ensure_index_exist(cls.get_table_name())
 
-        await cls.ensure_index_exist(table_name)
+    async def _save(self: 'BaseModel', data: dict) -> dict:
+        table_name = self.get_table_name()
+        await self._client.index(index=table_name, body=data)
+        return data
+
+    @classmethod
+    async def _list(cls) -> list[dict]:
+        table_name = cls.get_table_name()
+        query = {'query': {'match_all': {}}}
+        response: ObjectApiResponse[Any] = await cls._client.search(
+            index=table_name, body=query
+        )
+        return [hit['_source'] for hit in response['hits']['hits']]

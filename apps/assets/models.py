@@ -3,10 +3,6 @@ from common.models import RootModel
 from .const import PlatformCategory
 
 
-class Test(RootModel):
-    pass
-
-
 class Asset(RootModel):
     name: str
     address: str
