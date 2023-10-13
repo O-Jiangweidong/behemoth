@@ -8,7 +8,7 @@ from apps.libs.db import QuerySet
 from .. import models, serializers, params
 
 
-router = APIRouter(tags=[_('platform')])
+router = APIRouter(tags=[_('Platform')])
 
 
 @router.get(

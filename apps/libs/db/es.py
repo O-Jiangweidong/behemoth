@@ -2,10 +2,11 @@ import uuid
 
 from datetime import datetime
 from gettext import gettext as _
-from typing import Any, Optional
+from typing import Any
 
 from elasticsearch import AsyncElasticsearch
 from elastic_transport import ObjectApiResponse
+from fastapi.exceptions import ValidationException
 from pydantic import BaseModel
 
 from apps.settings import settings
@@ -16,8 +17,9 @@ logger = get_logger()
 
 
 class ESQuerySet(object):
-    def __init__(self, data: dict) -> None:
-        self._data: dict = data['data']
+    def __init__(self, data: dict, model: BaseModel) -> None:
+        self._model = model
+        self._data: list = data['data']
         self._length = data['total']
 
     def __len__(self):
@@ -80,7 +82,7 @@ class ESManager(object):
         try:
             await cls._client.indices.create(index=index_name, body=cls.get_mapping())
         except Exception as error:
-            logger.error(f'Failed to create {index_name}: {error}')
+            raise error
         else:
             logger.info(f'Succeeded in creating {index_name}')
 
@@ -103,8 +105,36 @@ class ESManager(object):
         await cls.ensure_index_exist(table_name)
         await cls.ensure_index_uniform(table_name)
 
-    async def _save(self: 'BaseModel', data: dict) -> dict:
+    @staticmethod
+    async def json_encoder(data: dict):
+        from fastapi.encoders import jsonable_encoder
+        data = jsonable_encoder(data)
+        return data
+
+    async def _pre_check(self, unique_fields: tuple, data: dict) -> None:
+        should: list = []
+        errors: dict = {}
+        for field in unique_fields:
+            if value := data.get(field):
+                should.append({'term': {field: value}})
+                errors[field] = [_('Object with this %s already exists.') % field]
+
+        if not should:
+            return
+
+        body = {'query': {'bool': {'should': should}}}
+        response: ObjectApiResponse[Any] = await self._client.search(
+            index=self.get_table_name(), body=body
+        )
+        if response['hits']['total']['value'] > 0:
+            raise ValidationException(errors)
+
+    async def _save(self: 'RootModel | ESManager', data: dict) -> dict:
+        unique_fields: tuple = self.Config.unique_fields
         table_name = self.get_table_name()
+        data = await self.json_encoder(data)
+        await self._pre_check(unique_fields, data)
+
         await self._client.index(index=table_name, body=data)
         return data
 
