@@ -23,10 +23,10 @@ class EncryptedField(str):
     def __init__(self, secret_value: str) -> None:
         self._secret_value: str = cipher.encrypt(secret_value.encode()).decode()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._secret_value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
     @classmethod
@@ -35,6 +35,7 @@ class EncryptedField(str):
     ) -> core_schema.CoreSchema:
 
         # def serialize(value: str, info: core_schema.SerializationInfo) -> str:
+        #     这里序列化的时候转为明文
         #     return value
 
         s = core_schema.union_schema(
@@ -52,7 +53,3 @@ class EncryptedField(str):
             # ),
         )
         return s
-
-    def decrypt(self) -> str:
-        decrypted_data = cipher.decrypt(self._secret_value).decode()
-        return decrypted_data

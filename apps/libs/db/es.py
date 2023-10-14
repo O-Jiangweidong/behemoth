@@ -49,7 +49,7 @@ class ESManager(object):
     _mapping: dict = {}
 
     @classmethod
-    def _need_set_keyword(cls: 'RootModel | ESManager', field_name: str, field_info: FieldInfo):
+    async def _need_set_keyword(cls: 'RootModel | ESManager', field_name: str, field_info: FieldInfo):
         is_keyword = False
         if field_info.annotation is uuid.UUID:
             is_keyword = True
@@ -66,14 +66,14 @@ class ESManager(object):
         return is_keyword
 
     @classmethod
-    def get_mapping(cls: 'BaseModel | ESManager') -> dict:
+    async def get_mapping(cls: 'BaseModel | ESManager') -> dict:
         if not cls._mapping:
             properties = {}
             for name, field in cls.model_fields.items():
                 _type = 'text'
                 if field.annotation is datetime:
                     _type = 'date'
-                elif cls._need_set_keyword(name, field):
+                elif await cls._need_set_keyword(name, field):
                     _type = 'keyword'
 
                 properties[name] = {'type': _type}
@@ -103,7 +103,7 @@ class ESManager(object):
             return None
 
         try:
-            await cls._client.indices.create(index=index_name, body=cls.get_mapping())
+            await cls._client.indices.create(index=index_name, body=await cls.get_mapping())
         except Exception as error:
             raise error
         else:
@@ -111,7 +111,7 @@ class ESManager(object):
 
     @classmethod
     async def ensure_index_uniform(cls: 'BaseModel | ESManager', index_name: str) -> None:
-        new_mapping: dict = cls.get_mapping()['mappings']
+        new_mapping: dict = (await cls.get_mapping())['mappings']
         response = await cls._client.indices.get(index=index_name)
         old_mapping = response[index_name]['mappings']
         if new_mapping == old_mapping:
@@ -126,7 +126,7 @@ class ESManager(object):
     async def check(cls: 'BaseModel | ESManager') -> None:
         table_name: str = cls.get_table_name()
         await cls.ensure_index_exist(table_name)
-        await cls.ensure_index_uniform(table_name)
+        # await cls.ensure_index_uniform(table_name)
 
     async def _pre_check(
             self: 'RootModel | ESManager', data: dict, current_index: str
@@ -196,10 +196,9 @@ class ESManager(object):
 
     async def _save(self: 'RootModel | ESManager', data: dict) -> dict:
         table_name: str = self.get_table_name()
-        data: dict = jsonable_encoder(data)
+        data = {k: str(v) for k, v in dict(jsonable_encoder(data)).items()}
         await self._pre_check(data, table_name)
-
-        await self._client.index(index=table_name, body=data)
+        await self._client.index(index=table_name, document=data)
         return data
 
     @classmethod
