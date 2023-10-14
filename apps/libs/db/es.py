@@ -1,4 +1,7 @@
 import uuid
+import inspect
+
+from enum import Enum
 
 from datetime import datetime
 from gettext import gettext as _
@@ -7,10 +10,13 @@ from typing import Any
 from elasticsearch import AsyncElasticsearch
 from elastic_transport import ObjectApiResponse
 from fastapi.exceptions import ValidationException
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 from apps.settings import settings
 from apps.utils import singleton, get_logger
+from apps.common.special import Choice
 
 
 logger = get_logger()
@@ -43,6 +49,23 @@ class ESManager(object):
     _mapping: dict = {}
 
     @classmethod
+    def _need_set_keyword(cls: 'RootModel | ESManager', field_name: str, field_info: FieldInfo):
+        is_keyword = False
+        if field_info.annotation is uuid.UUID:
+            is_keyword = True
+        elif inspect.isclass(field_info.annotation) and \
+                issubclass(field_info.annotation, Enum):
+            is_keyword = True
+        elif field_info.json_schema_extra and \
+                field_info.json_schema_extra.get('index', False):
+            is_keyword = True
+        elif field_name in cls.Config.index_fields:
+            is_keyword = True
+        elif field_name in cls.Config.unique_fields:
+            is_keyword = True
+        return is_keyword
+
+    @classmethod
     def get_mapping(cls: 'BaseModel | ESManager') -> dict:
         if not cls._mapping:
             properties = {}
@@ -50,7 +73,7 @@ class ESManager(object):
                 _type = 'text'
                 if field.annotation is datetime:
                     _type = 'date'
-                elif field.annotation is uuid.UUID:
+                elif cls._need_set_keyword(name, field):
                     _type = 'keyword'
 
                 properties[name] = {'type': _type}
@@ -105,35 +128,76 @@ class ESManager(object):
         await cls.ensure_index_exist(table_name)
         await cls.ensure_index_uniform(table_name)
 
-    @staticmethod
-    async def json_encoder(data: dict):
-        from fastapi.encoders import jsonable_encoder
-        data = jsonable_encoder(data)
-        return data
-
-    async def _pre_check(self, unique_fields: tuple, data: dict) -> None:
-        should: list = []
+    async def _pre_check(
+            self: 'RootModel | ESManager', data: dict, current_index: str
+    ) -> None:
         errors: dict = {}
+        unique_fields: tuple = self.Config.unique_fields
+        foreign_fields: dict = self.Config.foreign_fields
+
+        should: list = []
         for field in unique_fields:
             if value := data.get(field):
-                should.append({'term': {field: value}})
-                errors[field] = [_('Object with this %s already exists.') % field]
+                should.append({
+                    'bool': {
+                        'must': [
+                            {'term': {field: value}},
+                            {'term': {'_index': current_index}}
+                        ]
+                    }
+                })
+
+        foreign_index = []
+        for field, index_info in foreign_fields.items():
+            index_name, index_primary = index_info
+            foreign_index.append(index_name)
+            if value := data.get(field):
+                should.append({
+                    'bool': {
+                        'must': [
+                            {'term': {index_primary: value}},
+                            {'term': {'_index': index_name}}
+                        ],
+                    }
+                })
 
         if not should:
             return
 
+        unique_err = _('Object with this %s already exists.')
+        foreign_err = _('The attribute %s associated with the object does not exist')
+
         body = {'query': {'bool': {'should': should}}}
         response: ObjectApiResponse[Any] = await self._client.search(
-            index=self.get_table_name(), body=body
+            index=[self.get_table_name(), *foreign_index], body=body
         )
-        if response['hits']['total']['value'] > 0:
+        result: list = response['hits']['hits']
+        if foreign_fields and not result:
+            for field, __ in foreign_fields.items():
+                errors.setdefault(field, [foreign_err % field])
+
+        for item in result:
+            source_data: dict = item['_source']
+            # 检查唯一性
+            for field in unique_fields:
+                if source_data.get(field) == data[field]:
+                    errors.setdefault(field, [unique_err % field])
+            # 检查外键
+            for field, index_info in foreign_fields.items():
+                index_name, index_primary = index_info
+                if index_name != item['_index']:
+                    continue
+
+                if not source_data.get(index_primary):
+                    errors.setdefault(field, [foreign_err % field])
+
+        if errors:
             raise ValidationException(errors)
 
     async def _save(self: 'RootModel | ESManager', data: dict) -> dict:
-        unique_fields: tuple = self.Config.unique_fields
-        table_name = self.get_table_name()
-        data = await self.json_encoder(data)
-        await self._pre_check(unique_fields, data)
+        table_name: str = self.get_table_name()
+        data: dict = jsonable_encoder(data)
+        await self._pre_check(data, table_name)
 
         await self._client.index(index=table_name, body=data)
         return data

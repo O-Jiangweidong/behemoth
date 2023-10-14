@@ -29,9 +29,14 @@ class PlatForm(RootModel):
 
 class Account(RootModel):
     name: str
-    username: str
+    username: str = Field(title=_('username'))
     password: Optional[EncryptedField] = None
-    asset_id: uuid.UUID = Field(title=_('Asset'), json_schema_extra={'foreign': Asset})
+    asset_id: uuid.UUID = Field(title=_('Asset'))
 
     class Config(RootModel.Config):
         table_name: str = 'assets_account'
+        foreign_fields: dict = {
+            'asset_id': ('assets_asset', 'id'),
+            **RootModel.Config.foreign_fields
+        }
+        index_fields = RootModel.Config.index_fields + ('username',)

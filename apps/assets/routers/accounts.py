@@ -22,7 +22,7 @@ async def list_accounts(p: params.AccountParams = Depends()) -> list[dict]:
 
 @router.post(
     '/accounts/', summary=_('Create account'),
-    response_model=models.Account,
+    response_model=models.Account, response_model_exclude={'password'}
 )
 async def create_account(instance: serializers.Account) -> BaseModel:
     instance: BaseModel = await instance.save()

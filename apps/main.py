@@ -30,7 +30,7 @@ async def check_database():
 
 app = FastAPI(
     title='Behemoth', summary=_('Command managed management component'),
-    on_startup=[check_database],
+    # on_startup=[check_database],
 )
 
 # 添加全局异常捕捉器

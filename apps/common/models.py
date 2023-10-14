@@ -24,7 +24,12 @@ class RootModel(BaseModel, DBManager):
     comment: str = Field(default='', title=_('Comment'))
 
     class Config:
-        unique_fields = ('id',)
+        unique_fields: tuple = ('id',)
+        foreign_fields: dict = {}
+        index_fields: tuple = tuple()
+
+    def __str__(self):
+        return 'ok'
 
     def _get_exclude_fields(self, instance: Optional['RootModel'] = None) -> set:
         exclude = set()
