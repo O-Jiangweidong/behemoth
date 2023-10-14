@@ -195,8 +195,11 @@ class ESManager(object):
             raise ValidationException(errors)
 
     async def _save(self: 'RootModel | ESManager', data: dict) -> dict:
+        from common.fields import EncryptedField
         table_name: str = self.get_table_name()
-        data = {k: str(v) for k, v in dict(jsonable_encoder(data)).items()}
+        data: dict = jsonable_encoder(
+            data, custom_encoder={EncryptedField: lambda x: str(x)}
+        )
         await self._pre_check(data, table_name)
         await self._client.index(index=table_name, document=data)
         return data
