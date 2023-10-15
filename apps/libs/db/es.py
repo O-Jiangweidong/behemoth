@@ -14,9 +14,9 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from apps.settings import settings
-from apps.utils import singleton, get_logger
-from apps.common.special import Choice
+from settings import settings
+from utils import singleton, get_logger
+from common.fields import EncryptedField
 
 
 logger = get_logger()
@@ -195,7 +195,6 @@ class ESManager(object):
             raise ValidationException(errors)
 
     async def _save(self: 'RootModel | ESManager', data: dict) -> dict:
-        from common.fields import EncryptedField
         table_name: str = self.get_table_name()
         data: dict = jsonable_encoder(
             data, custom_encoder={EncryptedField: lambda x: str(x)}

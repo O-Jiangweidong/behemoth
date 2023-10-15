@@ -1,4 +1,4 @@
-from apps.common.query import RootParams
+from common.query import RootParams
 
 
 class PlatformParams(RootParams):

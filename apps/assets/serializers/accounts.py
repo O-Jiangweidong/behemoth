@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from apps.common.serializers import RootModelSerializer
+from common.serializers import RootModelSerializer
 from .. import models
 
 

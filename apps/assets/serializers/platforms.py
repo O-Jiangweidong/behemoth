@@ -1,4 +1,4 @@
-from apps.common.serializers import RootModelSerializer
+from common.serializers import RootModelSerializer
 from .. import models
 from ..const import PlatformCategory
 

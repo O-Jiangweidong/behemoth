@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi_pagination import Page, paginate
 from pydantic import BaseModel
 
-from apps.libs.db import QuerySet
+from libs.db import QuerySet
 from .. import models, serializers, params
 
 

@@ -6,8 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from apps.assets import params
-from apps.libs.db import DBManager, QuerySet
+from assets import params
+from libs.db import DBManager, QuerySet
 
 
 class RootModel(BaseModel, DBManager):
