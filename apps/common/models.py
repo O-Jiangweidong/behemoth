@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import uuid
 
 from typing import Optional
@@ -6,7 +8,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from assets import params
 from libs.db import DBManager, QuerySet
 
 
@@ -28,9 +29,6 @@ class RootModel(BaseModel, DBManager):
         foreign_fields: dict = {}
         index_fields: tuple = tuple()
 
-    def __str__(self):
-        return 'ok'
-
     def _get_exclude_fields(self, instance: Optional['RootModel'] = None) -> set:
         exclude = set()
         for name, field in self.model_fields.items():
@@ -48,8 +46,17 @@ class RootModel(BaseModel, DBManager):
         return self
 
     @classmethod
-    async def list(cls: 'RootModel', p: params.RootParams) -> QuerySet:
-        result: dict = await cls._list(p.model_dump())
+    async def list(
+            cls: 'RootModel', p: Optional[BaseModel] = None,
+            extra_query: Optional[dict] = None, return_model: bool = False
+    ) -> QuerySet | list:
+        query = {} if p is None else p.model_dump(mode='json')
+        if extra_query:
+            query.update(extra_query)
+        result: dict = await cls._list(query)
+        if return_model:
+            return [cls(**d) for d in result['data']] # noqa
+
         queryset: QuerySet = QuerySet(result, model=cls)
         return queryset
 

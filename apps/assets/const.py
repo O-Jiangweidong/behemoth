@@ -3,7 +3,14 @@ from gettext import gettext as _
 from common.special import Choice
 
 
+TASK_WORKER = 'task_worker'
+
+
 class PlatformCategory(Choice):
     mysql = 'mysql'
-    publisher = 'publisher'
+
+
+class Protocol(Choice):
+    ssh = 'ssh'
+    mysql = 'mysql'
 

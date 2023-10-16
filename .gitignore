@@ -2,5 +2,4 @@
 test*
 data
 config.yml
-__pycache__/
 *.pyc

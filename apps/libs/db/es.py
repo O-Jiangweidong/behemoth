@@ -26,11 +26,12 @@ class ESQuerySet(object):
     def __init__(self, data: dict, model: BaseModel) -> None:
         self._model = model
         self._data: list = data['data']
-        self._length = data['total']
+        self._length: int = data['total']
 
     def __len__(self):
         return self._length
 
+    @property
     def data(self):
         return self._data
 
@@ -70,18 +71,21 @@ class ESManager(object):
         if not cls._mapping:
             properties = {}
             for name, field in cls.model_fields.items():
-                _type = 'text'
+                _type_name, _type = 'type', 'text'
                 if field.annotation is datetime:
                     _type = 'date'
                 elif await cls._need_set_keyword(name, field):
                     _type = 'keyword'
-
-                properties[name] = {'type': _type}
+                elif field.json_schema_extra:
+                    if mapping := field.json_schema_extra.get('es_mapping'):
+                        _type_name = 'properties'
+                        _type = {k: {'type': v} for k, v in mapping.items()}
+                properties[name] = {_type_name: _type}
             cls._mapping = {'mappings': {'properties': properties}}
         return cls._mapping
 
     @classmethod
-    def get_table_name(cls: 'BaseModel | ESManager'):
+    async def get_table_name(cls: 'BaseModel | ESManager'):
         table_name: str = cls.model_config.get('table_name', '')
         if not table_name:
             raise ValueError(_('%s model_config no attribute table_name') % (cls,))
@@ -116,7 +120,8 @@ class ESManager(object):
         old_mapping = response[index_name]['mappings']
         if new_mapping == old_mapping:
             return
-
+        logger.debug(f'old mapping: {old_mapping}')
+        logger.debug(f'new mapping: {new_mapping}')
         logger.info(f'Start migrating model [{index_name}] mappings')
         # 更新索引 mapping
         await cls._client.indices.put_mapping(index=index_name, body=new_mapping)
@@ -124,9 +129,9 @@ class ESManager(object):
 
     @classmethod
     async def check(cls: 'BaseModel | ESManager') -> None:
-        table_name: str = cls.get_table_name()
+        table_name: str = await cls.get_table_name()
         await cls.ensure_index_exist(table_name)
-        # await cls.ensure_index_uniform(table_name)
+        await cls.ensure_index_uniform(table_name)
 
     async def _pre_check(
             self: 'RootModel | ESManager', data: dict, current_index: str
@@ -169,7 +174,7 @@ class ESManager(object):
 
         body = {'query': {'bool': {'should': should}}}
         response: ObjectApiResponse[Any] = await self._client.search(
-            index=[self.get_table_name(), *foreign_index], body=body
+            index=[await self.get_table_name(), *foreign_index], body=body
         )
         result: list = response['hits']['hits']
         if foreign_fields and not result:
@@ -195,7 +200,7 @@ class ESManager(object):
             raise ValidationException(errors)
 
     async def _save(self: 'RootModel | ESManager', data: dict) -> dict:
-        table_name: str = self.get_table_name()
+        table_name: str = await self.get_table_name()
         data: dict = jsonable_encoder(
             data, custom_encoder={EncryptedField: lambda x: str(x)}
         )
@@ -203,13 +208,29 @@ class ESManager(object):
         await self._client.index(index=table_name, document=data)
         return data
 
+    @staticmethod
+    async def _build_query_body(params: dict) -> dict:
+        size = params.pop('size', None)
+        page = params.pop('page', None)
+        if not params:
+            query: dict = {'query': {'match_all': {}}}
+        else:
+            must: list = [{'term': {k: v}} for k, v in params.items()]
+            query: dict = {'query': {'bool': {'must': must}}}
+        if size:
+            query.update(size=size)
+        if page:
+            size = size or 15
+            query.update({'from': (page - 1) * size})
+        return query
+
     @classmethod
-    async def _list(cls, param: dict) -> dict:
-        size = param.get('size', 100)
-        table_name = cls.get_table_name()
-        query = {'query': {'match_all': {}}, 'size': size}
+    async def _list(cls, params: dict) -> dict:
+        table_name = await cls.get_table_name()
+        body: dict = await cls._build_query_body(params)
+        logger.debug(f'List query body: {body}')
         response: ObjectApiResponse[Any] = await cls._client.search(
-            index=table_name, body=query
+            index=table_name, body=body
         )
         result: dict = {
             'data': [hit['_source'] for hit in response['hits']['hits']],
