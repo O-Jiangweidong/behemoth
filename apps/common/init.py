@@ -2,6 +2,11 @@ import importlib
 import inspect
 
 from common.models import RootModel
+from libs.jms.client import jms_client
+
+
+async def check_jms():
+    pass
 
 
 async def check_db():
@@ -15,7 +20,8 @@ async def check_db():
         for name, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and inspect.getmodule(obj) == module \
                     and issubclass(obj, RootModel) and hasattr(obj, 'check'):
-                await obj.check()
+                if getattr(getattr(obj, 'Config', None), 'abstract', False):
+                    await obj.check()
 
 
 async def apps_init():

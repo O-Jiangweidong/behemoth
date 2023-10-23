@@ -1,15 +1,15 @@
 from pydantic import BaseModel
 
 from common.query import RootParams
-from assets.const import TASK_WORKER
+from assets.const import WorkerCategory
 
 
 class AssetParams(RootParams):
     pass
 
 
-class TaskWorkerParamsNoPage(BaseModel):
-    platform: str = TASK_WORKER
+class WorkerParamsNoPage(BaseModel):
+    platform: str = WorkerCategory.worker
 
 
 class AccountParams(RootParams):

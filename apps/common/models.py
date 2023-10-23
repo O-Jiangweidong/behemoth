@@ -28,6 +28,7 @@ class RootModel(BaseModel, DBManager):
         unique_fields: tuple = ('id',)
         foreign_fields: dict = {}
         index_fields: tuple = tuple()
+        abstract: bool = False
 
     def _get_exclude_fields(self, instance: Optional['RootModel'] = None) -> set:
         exclude = set()

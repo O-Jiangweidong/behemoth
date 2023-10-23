@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import inspect
 
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from settings import settings
-from utils import singleton, get_logger
+from common.utils import singleton, get_logger, random_string
 from common.fields import EncryptedField
 
 
@@ -115,16 +116,45 @@ class ESManager(object):
 
     @classmethod
     async def ensure_index_uniform(cls: 'BaseModel | ESManager', index_name: str) -> None:
-        new_mapping: dict = (await cls.get_mapping())['mappings']
+        new_mapping: dict = (await cls.get_mapping())
         response = await cls._client.indices.get(index=index_name)
-        old_mapping = response[index_name]['mappings']
+        old_mapping = {'mappings': response[index_name]['mappings']}
         if new_mapping == old_mapping:
             return
+
         logger.debug(f'old mapping: {old_mapping}')
         logger.debug(f'new mapping: {new_mapping}')
         logger.info(f'Start migrating model [{index_name}] mappings')
-        # 更新索引 mapping
-        await cls._client.indices.put_mapping(index=index_name, body=new_mapping)
+        # 查询旧索引数据数量
+        response: ObjectApiResponse = await cls._client.count(index=index_name)
+        old_document_count: int = response['count']
+        logger.debug(f'old_document_count: {old_document_count}')
+        # 创建新索引
+        new_index_name: str = f'{index_name}-{random_string(4, upper=False)}'
+        await cls._client.indices.create(index=new_index_name, body=new_mapping)
+        # 新旧索引替换
+        reindex_body = {
+            'source': {'index': index_name}, 'dest': {'index': new_index_name}
+        }
+        await cls._client.reindex(body=reindex_body, wait_for_completion=True,)
+        # 处理旧索引
+        await cls._client.indices.delete(index=index_name)
+        await cls._client.indices.create(index=index_name, body=new_mapping)
+        reindex_body = {
+            'source': {'index': new_index_name}, 'dest': {'index': index_name}
+        }
+        # 查询新索引数据是否都导入完成
+        new_document_count: int = 0
+        while new_document_count != old_document_count:
+            logger.debug(
+                f'new_document_count({new_document_count}) !='
+                f' old_document_count({old_document_count})'
+            )
+            response: ObjectApiResponse = await cls._client.count(index=new_index_name)
+            new_document_count = response['count']
+            await asyncio.sleep(1)
+        await cls._client.reindex(body=reindex_body, wait_for_completion=True)
+        await cls._client.indices.delete(index=new_index_name)
         logger.info(f'The migration model [{index_name}] mapping is complete')
 
     @classmethod
@@ -213,16 +243,16 @@ class ESManager(object):
         size = params.pop('size', None)
         page = params.pop('page', None)
         if not params:
-            query: dict = {'query': {'match_all': {}}}
+            query_body: dict = {'query': {'match_all': {}}}
         else:
             must: list = [{'term': {k: v}} for k, v in params.items()]
-            query: dict = {'query': {'bool': {'must': must}}}
+            query_body: dict = {'query': {'bool': {'must': must}}}
         if size:
-            query.update(size=size)
+            query_body.update(size=size)
         if page:
             size = size or 15
-            query.update({'from': (page - 1) * size})
-        return query
+            query_body.update({'from': (page - 1) * size})
+        return query_body
 
     @classmethod
     async def _list(cls, params: dict) -> dict:

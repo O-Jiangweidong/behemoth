@@ -13,10 +13,11 @@ from apps.middlewares import TokenMiddleware
 from settings import settings
 from assets.routers import router as assets_router
 from common.exceptions import register_exceptions
-from common.init import check_db, apps_init
+from common.init import check_jms, check_db, apps_init
 
 
 async def startup():
+    await check_jms()
     await check_db()
     await apps_init()
 

@@ -11,7 +11,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from settings import settings
-from utils import get_logger
+from common.utils import get_logger, singleton
 
 
 logger = get_logger()
@@ -30,13 +30,16 @@ class RegisterResponse(BaseModel):
     service_account: ServiceAccount
 
 
+@singleton
 class JumpServerClient:
     def __init__(self):
         self.base_url: str = settings.APP.CORE_HOST
         self.key_path: str = os.path.join(settings.DATA_DIR, 'keys')
         self.key_file: str = os.path.join(self.key_path, '.access_key')
         self.access_key: Optional[AccessKey] = None
-        asyncio.run(self._load_auth())
+
+    async def check(self) -> None:
+        await self._load_auth()
 
     async def _load_auth(self) -> None:
         if not os.path.exists(self.key_file):
@@ -87,7 +90,9 @@ class JumpServerClient:
     @staticmethod
     async def _get_random_name(length=6) -> str:
         ret = await asyncio.to_thread(
-            random.sample, string.ascii_letters, length
+            random.sample, string.ascii_letters, length  # noqa
         )
         return f"Behemoth-{''.join(ret)}"
 
+
+jms_client = JumpServerClient()

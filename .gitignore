@@ -3,3 +3,4 @@ test*
 data
 config.yml
 *.pyc
+.DS_Store

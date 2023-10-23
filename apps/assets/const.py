@@ -3,7 +3,8 @@ from gettext import gettext as _
 from common.special import Choice
 
 
-TASK_WORKER = 'task_worker'
+class WorkerCategory(Choice):
+    worker = 'worker'
 
 
 class PlatformCategory(Choice):

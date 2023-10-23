@@ -1,10 +1,15 @@
 import os
+import hashlib
+import random
+import string
 
 import aiologger
 
 from typing import Callable
 
-from aiologger.handlers.files import AsyncTimedRotatingFileHandler
+from aiologger.handlers.files import (
+    AsyncTimedRotatingFileHandler, RolloverInterval
+)
 from aiologger.handlers.streams import AsyncStreamHandler
 
 from aiologger.formatters.base import Formatter
@@ -22,7 +27,7 @@ def get_logger() -> aiologger.Logger:
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     file_handler = AsyncTimedRotatingFileHandler(
-        os.path.join(log_dir, 'app.log')
+        os.path.join(log_dir, 'app.log'), RolloverInterval.DAYS
     )
     file_handler.level = log_level
     file_handler.formatter = log_formatter
@@ -45,3 +50,22 @@ def singleton(cls) -> Callable:
         return instances[cls]
 
     return wrapper
+
+
+def random_string(
+        length: int = 6, upper: bool = True, lower: bool = True
+) -> str:
+    letters = ''
+    if lower:
+        letters += string.ascii_lowercase
+    if upper:
+        letters += string.ascii_uppercase
+    return ''.join(random.sample(letters, length))
+
+
+def calc_file_md5(file_path):
+    with open(file_path, 'rb') as file:
+        md5_hash = hashlib.md5()
+        while chunk := file.read(4096):
+            md5_hash.update(chunk)
+    return md5_hash.hexdigest()
