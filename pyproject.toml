@@ -19,6 +19,7 @@ aiohttp = "^3.8.5"
 fastapi-pagination = "^0.12.10"
 cryptography = "^41.0.4"
 asyncssh = "^2.14.0"
+pycryptodome = "^3.19.0"
 
 
 [build-system]

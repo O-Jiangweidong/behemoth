@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi.exceptions import ValidationException
 
 from assets.models import Worker, Asset
+from assets.serializers import TaskInstance
 from common.utils import singleton, get_logger
 
 
@@ -77,19 +78,19 @@ class WorkerPool(object):
         return worker
 
     @staticmethod
-    async def __run(worker: Worker, asset: Asset) -> None:
-        # TODO create task
-        await worker.run()
+    async def __run(task: TaskInstance) -> None:
+        await task.worker.run(task)
 
     async def __post_run(self, asset: Asset) -> None:
         worker: Worker = self._running_workers.pop(str(asset.id))
         await self.add_worker(worker)
 
-    async def work(self, asset: Asset) -> None:
-        worker: Worker = await self.__pre_run(asset)
+    async def work(self, task: TaskInstance) -> None:
+        worker: Worker = await self.__pre_run(task.asset)
+        task.worker = worker
         try:
-            await self.__run(worker, asset)
+            await self.__run(task)
         except Exception as err:
-            logger.error(f'{asset} work failed: {err}')
+            logger.error(f'{task.asset} work failed: {err}')
         finally:
-            await self.__post_run(asset)
+            await self.__post_run(task.asset)

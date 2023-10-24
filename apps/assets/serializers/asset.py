@@ -1,5 +1,3 @@
-import uuid
-
 from gettext import gettext as _
 
 from pydantic import Field
@@ -23,11 +21,3 @@ class Asset(RootModelSerializer):
 class Worker(RootModelSerializer):
     class Config:
         model = models.Worker
-
-
-class Task(RootModelSerializer):
-    asset_id: uuid.UUID = Field(title=_('Asset'))
-    worker_id: uuid.UUID = Field(title=_('Worker'))
-
-    class Config:
-        model = models.Task

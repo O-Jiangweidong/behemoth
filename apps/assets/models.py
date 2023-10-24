@@ -2,6 +2,7 @@ import os
 import uuid
 
 import asyncssh
+import jwt
 
 from typing import Optional, Any
 from gettext import gettext as _
@@ -10,10 +11,11 @@ from pydantic import Field, BaseModel
 from fastapi.exceptions import ValidationException
 from asyncssh import SSHClientConnection, SSHCompletedProcess
 
+from assets.serializers import TaskInstance
 from settings import settings
 from common.models import RootModel
 from common.fields import EncryptedField
-from common.utils import get_logger, calc_file_md5
+from common.utils import get_logger, calc_file_md5, encrypt_json_file
 
 from .const import PlatformCategory, Protocol, WorkerCategory
 
@@ -159,12 +161,26 @@ class Worker(Asset):
             self._local_script_file, (self._ssh_client, self._remote_script_file)
         )
 
-    async def __process_commands_file(self):
-        pass
+    async def __process_commands_file(self, task: TaskInstance):
+        commands_file_suffix: str = f'{task.id}.json'
+        local_commands_dir: str = os.path.join(settings.DATA_DIR, 'commands')
+        os.makedirs(local_commands_dir, exist_ok=True)
 
-    async def __process_file(self) -> None:
+        self._local_commands_file = os.path.join(local_commands_dir, commands_file_suffix)
+        self._remote_commands_file = f'/tmp/behemoth/commands/{commands_file_suffix}'
+
+        # TODO commands模型还未创建，临时模拟点
+        data: dict = {'commands': ['echo hell', 'date', 'ls', 'pwd']}
+        encrypt_json_file(self._local_commands_file, data, task.encryption_key)
+
+        await self._ssh_client.run(f'mkdir -p {os.path.dirname(self._remote_commands_file)}')
+        await asyncssh.scp(
+            self._local_commands_file, (self._ssh_client, self._remote_commands_file)
+        )
+
+    async def __process_file(self, task: TaskInstance) -> None:
         await self.__ensure_script_exist()
-        await self.__process_commands_file()
+        await self.__process_commands_file(task)
         await asyncssh.scp(
             self._src_path, (self._ssh_client, self._dest_path)
         )
@@ -177,12 +193,20 @@ class Worker(Asset):
         # 清理本地文件
         os.remove(self._local_commands_file)
 
-    async def __execute(self) -> None:
-        await self.__process_file()
-        await self._ssh_client.create_process(f'python3 {self._dest_file}')
+    @staticmethod
+    async def generate_token(task: TaskInstance) -> str:
+        payload: dict = {'type': 'task', 'id': task.id}
+        return jwt.encode(payload, settings.APP.SECRET_KEY, 'HS256')
 
-    async def run(self) -> None:
+    async def __execute(self, task: TaskInstance) -> None:
+        await self.__process_file(task)
+        await self._ssh_client.create_process(
+            f'python3 -c {self._dest_file} -s {self.generate_token(task)} '
+            f'-w {str(task.worker.id)} -t {str(task.id)} -k {task.encryption_key}'
+        )
+
+    async def run(self, task: TaskInstance) -> None:
         # TODO 这里参数得传入Task对象，根据Task对象生成commands文件名称
         await self.__check()
-        await self.__execute()
+        await self.__execute(task)
         await self.__clear()
